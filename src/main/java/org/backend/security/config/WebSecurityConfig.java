@@ -1,7 +1,8 @@
-package org.backend.config;
+package org.backend.security.config;
 
-import org.backend.security.AuthEntryPointJwt;
-import org.backend.security.AuthTokenFilter;
+import org.backend.security.helper.AuthEntryPointJwt;
+import org.backend.security.interceptor.AuthTokenFilter;
+import org.backend.security.interceptor.PersonaInterceptor;
 import org.backend.serviceImpl.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +19,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -53,24 +55,23 @@ public class WebSecurityConfig {
     }
 
     @Bean
+    public PersonaInterceptor personaInterceptor() {
+        return new PersonaInterceptor();
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http.cors(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
                 .exceptionHandling(httpSecurityExceptionHandlingConfigurer -> httpSecurityExceptionHandlingConfigurer.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(httpSecuritySessionManagementConfigurer -> httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(matchers -> {
-                    matchers.requestMatchers("/auth/**").permitAll();
+                    matchers.requestMatchers("/api/user/**").hasRole("ADMIN");
+                    matchers.requestMatchers("/auth/api/**").permitAll();
                     matchers.anyRequest().authenticated();
                 }).addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(personaInterceptor(), BasicAuthenticationFilter.class)
                 .authenticationProvider(authenticationProvider()).build();
     }
 
-   /* private List<String> authenticatedUrlsForManager()
-    {
-        return List.of("/api/properties/add",
-                "/api/properties/delete/**",
-                "/api/properties/change-rental-rate/**",
-                "/api/properties/total-rental-income/**",
-                "/api/users/add");
-    }*/
 }

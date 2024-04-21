@@ -45,4 +45,14 @@ public class GlobalExceptionHandler {
                 .build();
     }
 
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErrorResponseDTO getException(Exception exception){
+        log.error("getPropertyNotFoundException {}", exception.getMessage());
+        return ErrorResponseDTO.builder()
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .message(exception.getMessage())
+                .build();
+    }
+
 }

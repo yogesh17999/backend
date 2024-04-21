@@ -1,17 +1,26 @@
-package org.backend.util;
+package org.backend.security.helper;
 
 import io.jsonwebtoken.*;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.backend.dto.LoginResponseDto;
+import org.backend.dto.RoleDto;
 import org.backend.entity.User;
 import org.backend.repository.UserRepository;
+import org.backend.security.context.RequestContext;
+import org.backend.security.contstant.SecurityConstants;
 import org.backend.serviceImpl.UserDetailsServiceImpl;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -26,16 +35,22 @@ public class JwtUtil {
     @Autowired
     private UserRepository userRepository;
 
-    public String generateJwtToken(Authentication authentication) {
+    @Autowired
+    private ModelMapper modelMapper;
+
+    @Autowired
+    RequestContext requestContext;
+
+    public LoginResponseDto generateJwtToken(Authentication authentication) {
 
         UserDetailsServiceImpl userPrincipal = (UserDetailsServiceImpl) authentication.getPrincipal();
         Optional<User> user = userRepository.findByEmail(userPrincipal.getUsername());
-        return Jwts.builder()
+        return LoginResponseDto.builder().token(Jwts.builder()
                 .setSubject((userPrincipal.getUsername()))
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(SignatureAlgorithm.HS256, jwtSecret)
-                .compact();
+                .compact()).role(modelMapper.map(user.orElse(null).getRole(), RoleDto.class)).build();
     }
 
     public String getUserNameFromJwtToken(String token) {
@@ -58,8 +73,13 @@ public class JwtUtil {
         } catch (Exception exception) {
             exception.getStackTrace();
         }
-
         return false;
     }
 
+    public void setRequestContextDetails(UserDetails userDetails, HttpServletRequest request) {
+        requestContext.setJwtHeader(request.getHeader(SecurityConstants.JWT_HEADER));
+        requestContext.setRoles(userDetails.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList()));
+        requestContext.setIpAddress(request.getLocalAddr());
+        requestContext.setPreferredUserName(userDetails.getUsername());
+    }
 }

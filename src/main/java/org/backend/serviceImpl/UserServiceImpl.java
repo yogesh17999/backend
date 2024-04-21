@@ -8,9 +8,10 @@ import org.backend.entity.User;
 import org.backend.entity.UserRoles;
 import org.backend.exceptions.UserValidationException;
 import org.backend.repository.UserRepository;
+import org.backend.security.context.RequestContext;
 import org.backend.service.UserService;
 import org.backend.util.Common;
-import org.backend.util.JwtUtil;
+import org.backend.security.helper.JwtUtil;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,32 +20,44 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
+
+import java.lang.reflect.Array;
+import java.util.Arrays;
+import java.util.List;
 
 @Service
 @Transactional
 public class UserServiceImpl implements UserService{
 
-    @Autowired
-    private ModelMapper modelMapper;
+    private final ModelMapper modelMapper;
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    private final AuthenticationManager authenticationManager;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+
+    private final RequestContext requestContext;
+
+    public UserServiceImpl(ModelMapper modelMapper, JwtUtil jwtUtil, AuthenticationManager authenticationManager, PasswordEncoder passwordEncoder, UserRepository userRepository, RequestContext requestContext) {
+        this.modelMapper = modelMapper;
+        this.jwtUtil = jwtUtil;
+        this.authenticationManager = authenticationManager;
+        this.passwordEncoder = passwordEncoder;
+        this.userRepository = userRepository;
+        this.requestContext = requestContext;
+    }
+
 
     @Override
     public LoginResponseDto authenticateUser(LoginRequestDto loginRequestDto) {
         Authentication authentication
                 =authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequestDto.getEmail(),loginRequestDto.getPassword()));
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        return LoginResponseDto.builder().token(jwtUtil.generateJwtToken(authentication)).build();
+        return jwtUtil.generateJwtToken(authentication);
     }
 
     @Override
@@ -53,13 +66,16 @@ public class UserServiceImpl implements UserService{
             throw new UserValidationException("Please enter a valid email address");
         if (Boolean.FALSE.equals(Common.isValidPassword(signUpRequest.getPassword())))
             throw new UserValidationException("Please enter a valid password");
-        userRepository.findByEmail(signUpRequest.getEmail()).ifPresent(user->{ throw new UserValidationException("User is already exist");}) ;
+        userRepository.findByEmail(signUpRequest.getEmail()).ifPresent(user->{ throw new UserValidationException("User is already exist");});
 
         User userEntity = modelMapper.map(signUpRequest, User.class);
         userEntity.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
         UserRoles userRoles = new UserRoles();
         userRoles.setRoleName(signUpRequest.getRole().getRoleName().toUpperCase());
         userEntity.setRole(userRoles);
+//        if (!ObjectUtils.isEmpty(requestContext) && !ObjectUtils.isEmpty(requestContext.getRoles()) && requestContext.getRoles().stream().anyMatch(s -> s.equalsIgnoreCase("ROLE_ADMIN"))) {
+//            userRepository.findByEmail(requestContext.getPreferredUserName()).ifPresent(user -> userEntity.setChildUser(List.of(user)));
+//        }
         userRepository.save(userEntity);
         return "User Successfully added";
     }
