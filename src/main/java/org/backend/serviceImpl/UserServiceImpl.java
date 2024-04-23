@@ -71,7 +71,10 @@ public class UserServiceImpl implements UserService{
         User userEntity = modelMapper.map(signUpRequest, User.class);
         userEntity.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
         UserRoles userRoles = new UserRoles();
-        userRoles.setRoleName(signUpRequest.getRole().getRoleName().toUpperCase());
+        if(!ObjectUtils.isEmpty(signUpRequest.getRole()))
+         userRoles.setRoleName(signUpRequest.getRole().getRoleName().toUpperCase());
+        else
+            userRoles.setRoleName("USER");
         userEntity.setRole(userRoles);
 //        if (!ObjectUtils.isEmpty(requestContext) && !ObjectUtils.isEmpty(requestContext.getRoles()) && requestContext.getRoles().stream().anyMatch(s -> s.equalsIgnoreCase("ROLE_ADMIN"))) {
 //            userRepository.findByEmail(requestContext.getPreferredUserName()).ifPresent(user -> userEntity.setChildUser(List.of(user)));
