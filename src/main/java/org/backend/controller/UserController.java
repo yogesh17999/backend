@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/user/v1")
+@CrossOrigin("http://localhost:3000")
 public class UserController {
 
     private final UserTransectionService userTransectionService;
